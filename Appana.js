@@ -1,0 +1,22 @@
+import React from 'react';
+import { Provider as PaperProvider } from 'react-native-paper';
+import { SafeAreaView, StyleSheet } from 'react-native';
+import AppNavigator from './src/navigation/AppNavigator';
+import { theme } from './src/theme';
+import ErrorBoundary from './src/ErrorBoundary';
+
+export default function App() {
+		return (
+				<PaperProvider theme={theme}>
+						<SafeAreaView style={styles.safe}>
+								<ErrorBoundary>
+										<AppNavigator />
+								</ErrorBoundary>
+						</SafeAreaView>
+				</PaperProvider>
+		);
+}
+
+const styles = StyleSheet.create({
+		safe: { flex: 1, backgroundColor: theme.colors.background },
+});
