@@ -1,10 +1,11 @@
-import React, { useContext } from 'react';
-import { View, StyleSheet, FlatList, Image, Linking, Platform } from 'react-native';
-import { Text, Card, Button } from 'react-native-paper';
+import React, { useContext, useState } from 'react';
+import { View, StyleSheet, FlatList, Image, Linking, Platform, Alert } from 'react-native';
+import { Text, Card, Button, IconButton } from 'react-native-paper';
 import { AuthContext } from '../navigation/AppNavigator';
 
 export default function VideosScreen({ navigation }) {
-  const { posts, user, users } = useContext(AuthContext);
+  const { posts, user, users, addComment } = useContext(AuthContext);
+  const [visibleCaptions, setVisibleCaptions] = useState({});
   const videosAll = posts.filter(p => p.mediaType === 'video' || (p.imageUri && (p.imageUri.endsWith('.mp4') || p.imageUri.endsWith('.mov') || p.imageUri.endsWith('.webm'))));
   const videos = (() => {
     if (!user) return [];
@@ -34,10 +35,22 @@ export default function VideosScreen({ navigation }) {
         renderItem={({ item }) => (
           <Card style={styles.card}>
             <Card.Content>
-              <Text>{item.caption}</Text>
+              {/* legenda visível apenas após clicar em comentar */}
+              {visibleCaptions[item.id] ? <Text>{item.caption}</Text> : null}
               {item.imageUri ? <Image source={{ uri: item.imageUri }} style={{ width: '100%', height: 200, marginTop: 8 }} /> : null}
               <Button onPress={() => openVideo(item.imageUri)} style={{ marginTop: 8 }}>Abrir vídeo</Button>
             </Card.Content>
+            <Card.Actions>
+              <IconButton icon="comment-outline" onPress={() => {
+                setVisibleCaptions(prev => ({ ...prev, [item.id]: !prev[item.id] }));
+                if (typeof window !== 'undefined' && window.prompt) {
+                  const t = window.prompt('Escreva seu comentário');
+                  if (t) addComment(item.id, user?.email, t);
+                } else {
+                  Alert.alert('Comentar', 'Funcionalidade de comentário disponível no navegador ou em breve.');
+                }
+              }} />
+            </Card.Actions>
           </Card>
         )}
       />

@@ -1,30 +1,12 @@
 import React, { useContext, useState } from 'react';
 import { View, FlatList, StyleSheet, Image, Alert } from 'react-native';
-import { Text, Button, Card, TextInput, Avatar, IconButton } from 'react-native-paper';
+import { Text, Card, Avatar, IconButton, Button } from 'react-native-paper';
 import { AuthContext } from '../navigation/AppNavigator';
 import { theme } from '../theme';
-import * as ImagePicker from 'expo-image-picker';
 
 export default function FeedScreen() {
-  const { user, signOut, addPost, posts, toggleLike, addComment, users, deletePost } = useContext(AuthContext);
-  const [text, setText] = useState('');
-  const [image, setImage] = useState(null);
-
-  async function pickImage() {
-    try {
-      const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7, allowsEditing: true });
-      if (!res.cancelled) setImage(res.uri);
-    } catch (err) {
-      Alert.alert('Erro', 'Não foi possível abrir o seletor de imagens');
-    }
-  }
-
-  function publish() {
-    if (!text.trim() && !image) return Alert.alert('Atenção', 'Adicione texto ou imagem para publicar');
-    addPost({ authorEmail: user?.email, imageUri: image, caption: text });
-    setText('');
-    setImage(null);
-  }
+  const { user, signOut, posts, toggleLike, addComment, users, deletePost } = useContext(AuthContext);
+  const [visibleCaptions, setVisibleCaptions] = useState({});
 
   return (
     <View style={styles.container}>
@@ -39,24 +21,17 @@ export default function FeedScreen() {
         <Button mode="outlined" onPress={signOut}>Sair</Button>
       </View>
 
-      <Card style={styles.postBox}>
-        <Card.Content>
-          <TextInput placeholder="O que você está pensando?" value={text} onChangeText={setText} multiline style={styles.input} />
-          {image ? <Image source={{ uri: image }} style={{ width: '100%', height: 180, borderRadius: 8, marginBottom: 8 }} /> : null}
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button mode="outlined" onPress={pickImage} style={{ borderRadius: 8 }}>Escolher foto</Button>
-            <Button mode="contained" onPress={publish} style={[styles.postButton, { marginLeft: 8 }]}>Publicar</Button>
-          </View>
-        </Card.Content>
-      </Card>
+      {/* Composição de posts removida do Feed.
+          Para postar fotos/vídeos, use o botão central 'Publicar' na barra de navegação. */}
 
       <FlatList
         data={(() => {
           if (!user) return [];
           const me = users.find(u => u.email === user.email) || {};
           const following = me.following || [];
-          // show own posts and posts from people the user follows; always include videos
-          return posts.filter(p => p.mediaType === 'video' || p.authorEmail === user.email || following.includes(p.authorEmail));
+          // Mostrar apenas publicações que contenham imagem ou sejam vídeos,
+          // e apenas de quem o usuário segue ou do próprio usuário.
+          return posts.filter(p => (p.imageUri || p.mediaType === 'video') && (p.authorEmail === user.email || following.includes(p.authorEmail)));
         })()}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
@@ -77,17 +52,23 @@ export default function FeedScreen() {
                 ) : null
               )} />
               <Card.Content>
-                {item.caption ? <Text style={{ marginBottom: 8 }}>{item.caption}</Text> : null}
                 {item.imageUri ? <Image source={{ uri: item.imageUri }} style={{ width: '100%', height: 280, borderRadius: 8 }} /> : null}
-                {/* comments */}
-                {(item.comments || []).map(c => (
-                  <Text key={c.id} style={styles.comment}><Text style={{ fontWeight: '700' }}>{(users.find(u => u.email === c.userEmail)?.username) || c.userEmail.split('@')[0]}: </Text>{c.text}</Text>
-                ))}
+                {/* legenda e comentários ficam visíveis apenas após o usuário clicar no botão de comentar */}
+                {visibleCaptions[item.id] ? (
+                  <>
+                    {item.caption ? <Text style={{ marginBottom: 8 }}>{item.caption}</Text> : null}
+                    {(item.comments || []).map(c => (
+                      <Text key={c.id} style={styles.comment}><Text style={{ fontWeight: '700' }}>{(users.find(u => u.email === c.userEmail)?.username) || c.userEmail.split('@')[0]}: </Text>{c.text}</Text>
+                    ))}
+                  </>
+                ) : null}
               </Card.Content>
               <Card.Actions>
                 <IconButton icon={liked ? 'heart' : 'heart-outline'} color={liked ? theme.colors.primary : undefined} onPress={() => toggleLike(item.id, user?.email)} />
                 <IconButton icon="comment-outline" onPress={() => {
-                  // try simple prompt on web
+                  // mostrar/ocultar legenda e comentários; em seguida, abrir prompt para adicionar comentário
+                  setVisibleCaptions(prev => ({ ...prev, [item.id]: !prev[item.id] }));
+                  // prompt para adicionar comentário (opcional)
                   if (typeof window !== 'undefined' && window.prompt) {
                     const t = window.prompt('Escreva seu comentário');
                     if (t) addComment(item.id, user?.email, t);

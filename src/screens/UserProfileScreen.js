@@ -1,6 +1,6 @@
-import React, { useContext } from 'react';
-import { View, StyleSheet, FlatList, Image, Dimensions } from 'react-native';
-import { Text, Card, Button, Avatar } from 'react-native-paper';
+import React, { useContext, useState } from 'react';
+import { View, StyleSheet, FlatList, Image, Dimensions, Alert } from 'react-native';
+import { Text, Card, Button, Avatar, IconButton } from 'react-native-paper';
 import { AuthContext } from '../navigation/AppNavigator';
 
 const numCols = 3;
@@ -8,7 +8,8 @@ const size = Dimensions.get('window').width / numCols - 16;
 
 export default function UserProfileScreen({ route, navigation }) {
   const { email } = route.params;
-  const { posts, createChat, user, users, toggleFollow, deletePost } = useContext(AuthContext);
+  const { posts, createChat, user, users, toggleFollow, deletePost, addComment } = useContext(AuthContext);
+  const [visibleCaptions, setVisibleCaptions] = useState({});
 
   const profileUser = users.find(u => u.email === email) || { name: email };
   const isFollowing = user && profileUser.followers && profileUser.followers.includes(user.email);
@@ -63,7 +64,7 @@ export default function UserProfileScreen({ route, navigation }) {
           keyExtractor={i => i.id}
           renderItem={({ item }) => (
             <Card style={styles.postCard}>
-              <Card.Title title={(profileUser.name || '').toString()} subtitle={item.caption} left={() => (
+                <Card.Title title={(profileUser.name || '').toString()} left={() => (
                 profileUser.avatar ? <Image source={{ uri: profileUser.avatar }} style={styles.smallAvatar} /> : <Avatar.Text size={36} label={(profileUser.name || '').charAt(0).toUpperCase()} />
               )} right={() => (
                 user?.email === item.authorEmail ? (
@@ -78,11 +79,28 @@ export default function UserProfileScreen({ route, navigation }) {
               )} />
               <Card.Content>
                 <Image source={{ uri: item.imageUri }} style={styles.postImage} />
-                {item.caption ? <Text style={{ marginTop: 8 }}>{item.caption}</Text> : null}
-                {(item.comments || []).map(c => (
-                  <Text key={c.id} style={styles.comment}><Text style={{ fontWeight: '700' }}>{(users.find(u => u.email === c.userEmail)?.username) || c.userEmail.split('@')[0]}: </Text>{c.text}</Text>
-                ))}
-              </Card.Content>
+                  {/* legenda e comentários visíveis apenas após clicar em comentar */}
+                  {visibleCaptions[item.id] ? (
+                    <>
+                      {item.caption ? <Text style={{ marginTop: 8 }}>{item.caption}</Text> : null}
+                      {(item.comments || []).map(c => (
+                        <Text key={c.id} style={styles.comment}><Text style={{ fontWeight: '700' }}>{(users.find(u => u.email === c.userEmail)?.username) || c.userEmail.split('@')[0]}: </Text>{c.text}</Text>
+                      ))}
+                    </>
+                  ) : null}
+                </Card.Content>
+                <Card.Actions>
+                  <IconButton icon="comment-outline" onPress={() => {
+                    setVisibleCaptions(prev => ({ ...prev, [item.id]: !prev[item.id] }));
+                    if (typeof window !== 'undefined' && window.prompt) {
+                      const t = window.prompt('Escreva seu comentário');
+                      if (t) addComment(item.id, user?.email, t);
+                    } else {
+                      Alert.alert('Comentar', 'Funcionalidade de comentário disponível no navegador ou em breve.');
+                    }
+                  }} />
+                </Card.Actions>
+              
             </Card>
           )}
         />
